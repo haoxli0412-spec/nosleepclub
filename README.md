@@ -79,7 +79,7 @@ nosleepclub
 ## 卸载
 
 ```bash
-rm /usr/local/bin/nosleepclub
+rm ~/.local/bin/nosleepclub
 ```
 
 ## 常见问题

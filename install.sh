@@ -4,12 +4,14 @@ set -e
 echo "🌙 nosleepclub 安装中..."
 echo ""
 
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="${HOME}/.local/bin"
 TMP_DIR=$(mktemp -d)
 REPO="https://github.com/haoxli0412-spec/nosleepclub.git"
 
 cleanup() { rm -rf "$TMP_DIR"; }
 trap cleanup EXIT
+
+mkdir -p "$INSTALL_DIR"
 
 if ! command -v swift &>/dev/null; then
     echo "❌ 需要 Swift 编译器。请先安装 Xcode Command Line Tools："
@@ -31,12 +33,22 @@ cd "$TMP_DIR/nosleepclub"
 swift build -c release 2>/dev/null
 
 echo "📦 安装到 $INSTALL_DIR..."
-if [ -w "$INSTALL_DIR" ]; then
-    cp .build/release/nosleepclub "$INSTALL_DIR/nosleepclub"
-else
-    sudo cp .build/release/nosleepclub "$INSTALL_DIR/nosleepclub"
-fi
+cp .build/release/nosleepclub "$INSTALL_DIR/nosleepclub"
 chmod +x "$INSTALL_DIR/nosleepclub"
+
+if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
+    SHELL_RC=""
+    if [ -f "$HOME/.zshrc" ]; then
+        SHELL_RC="$HOME/.zshrc"
+    elif [ -f "$HOME/.bashrc" ]; then
+        SHELL_RC="$HOME/.bashrc"
+    fi
+    if [ -n "$SHELL_RC" ] && ! grep -q '.local/bin' "$SHELL_RC" 2>/dev/null; then
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_RC"
+        echo "📝 已将 ~/.local/bin 添加到 PATH（$SHELL_RC）"
+    fi
+    export PATH="$INSTALL_DIR:$PATH"
+fi
 
 echo ""
 echo "✅ 安装完成！"
