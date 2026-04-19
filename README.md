@@ -1,139 +1,104 @@
 # nosleepclub
 
-Keep your Mac awake with the lid closed — no dongle needed.
+合盖不休眠，不需要外接显示器，不需要 HDMI 欺骗器。
 
-`nosleepclub` creates a virtual display so macOS thinks an external monitor is connected, then prevents sleep. Close the lid and your Mac stays awake in clamshell mode.
+`nosleepclub` 通过创建虚拟屏幕让 macOS 以为接了外接显示器，合上盖子后进入 clamshell 模式而不是休眠。
 
-## Install
-
-**From source (recommended):**
+## 一键安装
 
 ```bash
-git clone https://github.com/haoxli0412-spec/nosleepclub.git
-cd nosleepclub
-make install
+curl -fsSL https://raw.githubusercontent.com/haoxli0412-spec/nosleepclub/main/install.sh | bash
 ```
 
-This builds the release binary and copies it to `/usr/local/bin`.
-
-**Build only (without installing):**
+安装完直接用：
 
 ```bash
-git clone https://github.com/haoxli0412-spec/nosleepclub.git
-cd nosleepclub
-swift build -c release
-# Binary is at .build/release/nosleepclub
+nosleepclub
 ```
 
-## Usage
+## 使用方法
 
 ```bash
-# Start — creates virtual display + prevents sleep
+# 启动（合盖不休眠）
 nosleepclub
 
-# Custom resolution
+# 自定义分辨率
 nosleepclub -w 2560 -h 1440
 
-# HiDPI (Retina) mode
+# HiDPI（Retina）模式
 nosleepclub --hidpi
 
-# Stop — press Ctrl+C
+# 停止 — 按 Ctrl+C
 ```
 
-Then close your MacBook lid. Your Mac will stay awake.
-
-### Run in background
+### 后台运行
 
 ```bash
-# Start in background
-nosleepclub &
-
-# Check if running
-pgrep -f nosleepclub && echo "running" || echo "not running"
-
-# Stop
-pkill -f nosleepclub
+nosleepclub &          # 后台启动
+pkill -f nosleepclub   # 停止
 ```
 
-### Verify it's working
+### 验证是否生效
 
 ```bash
-# Check sleep assertions
-pmset -g assertions | grep -E "PreventUserIdle|PreventSystem"
-
-# Check virtual display
+# 查看虚拟屏幕
 system_profiler SPDisplaysDataType | grep -A3 "nosleepclub"
+
+# 查看防睡眠状态
+pmset -g assertions | grep -E "PreventUserIdle|PreventSystem"
 ```
 
-You should see:
+正常会看到：
+- `nosleepclub Virtual Display: 1920 x 1080`
 - `PreventUserIdleDisplaySleep = 1`
 - `PreventUserIdleSystemSleep = 1`
 - `PreventSystemSleep = 1`
-- `nosleepclub Virtual Display: 1920 x 1080`
 
-## Requirements
+## 系统要求
 
-- macOS 14 (Sonoma) or later
-- Apple Silicon or Intel Mac
-- Swift 5.9+ (for building from source)
-- **Power adapter must be connected** (macOS requires this for clamshell mode)
+- macOS 14 (Sonoma) 或更高版本
+- Apple Silicon 或 Intel Mac
+- **必须接上电源**（macOS clamshell 模式的硬件要求）
 
-## How it works
+## 原理
 
 ```
-┌─────────────────────────────────────────────────┐
-│  nosleepclub                                    │
-│                                                 │
-│  1. CGVirtualDisplay API                        │
-│     └─ Creates a virtual "external" display     │
-│                                                 │
-│  2. caffeinate -d -i -s                         │
-│     ├─ -d: prevent display sleep                │
-│     ├─ -i: prevent idle sleep                   │
-│     └─ -s: prevent system sleep                 │
-│                                                 │
-│  Result: macOS sees an "external monitor"       │
-│  → closing lid triggers clamshell mode          │
-│  → system stays awake, network stays connected  │
-└─────────────────────────────────────────────────┘
+nosleepclub
+├── 创建虚拟屏幕（CGVirtualDisplay API）
+│   └── macOS 认为接了外接显示器
+├── 运行 caffeinate -d -i -s
+│   ├── -d: 阻止显示器休眠
+│   ├── -i: 阻止空闲休眠
+│   └── -s: 阻止系统休眠
+└── 合盖 → clamshell 模式（不休眠）
+    ├── 网络保持连接
+    ├── 下载继续
+    └── 进程继续运行
 ```
 
-1. Uses the macOS CoreGraphics `CGVirtualDisplay` API to create a virtual display
-2. macOS sees it as an external monitor connected to your Mac
-3. Launches `caffeinate -d -i -s` to prevent display, idle, and system sleep
-4. When you close the lid, macOS enters **clamshell mode** instead of sleeping
-5. Your network stays connected, downloads continue, processes keep running
-6. Press `Ctrl+C` to stop — the virtual display is removed and sleep behavior returns to normal
-
-## Uninstall
+## 卸载
 
 ```bash
-cd nosleepclub
-make uninstall
+rm /usr/local/bin/nosleepclub
 ```
 
-Or manually: `rm /usr/local/bin/nosleepclub`
+## 常见问题
 
-## FAQ
+**需要外接显示器或 HDMI 欺骗器吗？**
+不需要。nosleepclub 用软件虚拟屏幕替代了物理设备。
 
-**Q: Do I need an external monitor or HDMI dongle?**
-No. That's the whole point — `nosleepclub` replaces the physical dongle with a software virtual display.
+**不接电源可以吗？**
+不可以。macOS 要求接电源才能进入 clamshell 模式，这是硬件限制，任何软件都绕不过。
 
-**Q: Will it work without the power adapter?**
-No. macOS requires a power source for clamshell mode. This is a hardware-level restriction that no software can bypass.
+**虚拟屏幕会出现在系统设置里吗？**
+会，在 设置 → 显示器 里可以看到 "nosleepclub Virtual Display"。
 
-**Q: Does the virtual display show up in System Settings?**
-Yes, it appears as "nosleepclub Virtual Display" in Settings → Displays.
+**安全吗？**
+安全。虚拟屏幕在内存中创建，退出 nosleepclub 就自动移除。不修改系统文件，不安装内核扩展。
 
-**Q: Is this safe?**
-Yes. The virtual display is created in memory and removed when `nosleepclub` exits. No system files are modified, no kernel extensions are installed.
+**支持 Intel Mac 吗？**
+理论上支持所有运行 macOS 14+ 的 Mac，目前仅在 Apple Silicon (M4 Pro) 上测试过。
 
-**Q: What macOS versions are supported?**
-macOS 14 (Sonoma) and later. The `CGVirtualDisplay` API was introduced in macOS 14.
-
-**Q: Does it work on Intel Macs?**
-It should work on any Mac running macOS 14+, but has only been tested on Apple Silicon (M4 Pro).
-
-## License
+## 许可证
 
 MIT
