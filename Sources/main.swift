@@ -67,14 +67,64 @@ func parseArgs() -> (width: Int, height: Int, hiDPI: Bool) {
     return (width, height, hiDPI)
 }
 
+func killExisting() {
+    let pipe = Pipe()
+    let proc = Process()
+    proc.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+    proc.arguments = ["-x", "nosleepclub"]
+    proc.standardOutput = pipe
+    try? proc.run()
+    proc.waitUntilExit()
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    let myPid = ProcessInfo.processInfo.processIdentifier
+    let pids = String(data: data, encoding: .utf8)?
+        .split(separator: "\n")
+        .compactMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
+        .filter { $0 != myPid } ?? []
+    for pid in pids {
+        kill(pid, SIGTERM)
+    }
+    if !pids.isEmpty {
+        for _ in 0..<10 {
+            usleep(500_000)
+            let check = Process()
+            check.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+            check.arguments = ["-x", "nosleepclub"]
+            let p = Pipe()
+            check.standardOutput = p
+            try? check.run()
+            check.waitUntilExit()
+            let alive = String(data: p.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                .split(separator: "\n")
+                .compactMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
+                .filter { $0 != myPid } ?? []
+            if alive.isEmpty { break }
+            kill(alive[0], SIGKILL)
+        }
+        printStatus("Stopped previous nosleepclub process")
+    }
+}
+
 func main() {
     let config = parseArgs()
 
     printStatus("nosleepclub v\(version)")
+    killExisting()
     printStatus("Creating virtual display (\(config.width)x\(config.height)\(config.hiDPI ? " HiDPI" : ""))...")
 
     let virtualDisplay = VirtualDisplay()
-    guard virtualDisplay.create(width: config.width, height: config.height, hiDPI: config.hiDPI) else {
+    var created = false
+    for attempt in 1...3 {
+        if virtualDisplay.create(width: config.width, height: config.height, hiDPI: config.hiDPI) {
+            created = true
+            break
+        }
+        if attempt < 3 {
+            printStatus("Retrying in 2s... (\(attempt)/3)")
+            sleep(2)
+        }
+    }
+    guard created else {
         printError("Failed to create virtual display. Make sure you're on macOS 14+.")
         exit(1)
     }

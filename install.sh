@@ -35,6 +35,7 @@ swift build -c release 2>/dev/null
 echo "📦 安装到 $INSTALL_DIR..."
 cp .build/release/nosleepclub "$INSTALL_DIR/nosleepclub"
 chmod +x "$INSTALL_DIR/nosleepclub"
+codesign --force --sign - "$INSTALL_DIR/nosleepclub" 2>/dev/null
 
 if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
     SHELL_RC=""
