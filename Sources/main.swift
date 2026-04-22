@@ -105,6 +105,20 @@ func killExisting() {
     }
 }
 
+private var gVirtualDisplay: VirtualDisplay?
+private var gCaffeinate: CaffeinateProcess?
+
+private func handleSignal(_: Int32) {
+    printStatus("")
+    printStatus("Shutting down...")
+    gCaffeinate?.stop()
+    printStatus("caffeinate stopped")
+    gVirtualDisplay?.destroy()
+    printStatus("Virtual display removed")
+    printStatus("Goodbye from nosleepclub 🌙")
+    exit(0)
+}
+
 func main() {
     let config = parseArgs()
 
@@ -113,6 +127,7 @@ func main() {
     printStatus("Creating virtual display (\(config.width)x\(config.height)\(config.hiDPI ? " HiDPI" : ""))...")
 
     let virtualDisplay = VirtualDisplay()
+    gVirtualDisplay = virtualDisplay
     var created = false
     for attempt in 1...3 {
         if virtualDisplay.create(width: config.width, height: config.height, hiDPI: config.hiDPI) {
@@ -137,6 +152,7 @@ func main() {
 
     printStatus("Starting caffeinate (preventing display + idle + system sleep)...")
     let caffeinate = CaffeinateProcess()
+    gCaffeinate = caffeinate
     guard caffeinate.start() else {
         printError("Failed to start caffeinate")
         virtualDisplay.destroy()
@@ -150,24 +166,9 @@ func main() {
     printStatus("Press Ctrl+C to stop.")
     printStatus("")
 
-    let sigSources = [SIGINT, SIGTERM].map { sig -> DispatchSourceSignal in
-        signal(sig, SIG_IGN)
-        let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
-        source.setEventHandler {
-            printStatus("")
-            printStatus("Shutting down...")
-            caffeinate.stop()
-            printStatus("caffeinate stopped")
-            virtualDisplay.destroy()
-            printStatus("Virtual display removed")
-            printStatus("Goodbye from nosleepclub 🌙")
-            exit(0)
-        }
-        source.resume()
-        return source
-    }
+    signal(SIGINT, handleSignal)
+    signal(SIGTERM, handleSignal)
 
-    _ = sigSources
     dispatchMain()
 }
 
