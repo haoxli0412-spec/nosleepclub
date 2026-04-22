@@ -38,16 +38,12 @@ chmod +x "$INSTALL_DIR/nosleepclub"
 codesign --force --sign - "$INSTALL_DIR/nosleepclub" 2>/dev/null
 
 if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
-    SHELL_RC=""
-    if [ -f "$HOME/.zshrc" ]; then
-        SHELL_RC="$HOME/.zshrc"
-    elif [ -f "$HOME/.bashrc" ]; then
-        SHELL_RC="$HOME/.bashrc"
-    fi
-    if [ -n "$SHELL_RC" ] && ! grep -q '.local/bin' "$SHELL_RC" 2>/dev/null; then
-        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_RC"
-        echo "📝 已将 ~/.local/bin 添加到 PATH（$SHELL_RC）"
-    fi
+    for RC_FILE in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+        if [ -f "$RC_FILE" ] && ! grep -q '.local/bin' "$RC_FILE" 2>/dev/null; then
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$RC_FILE"
+            echo "📝 已将 ~/.local/bin 添加到 PATH（$RC_FILE）"
+        fi
+    done
     export PATH="$INSTALL_DIR:$PATH"
 fi
 
@@ -60,3 +56,6 @@ echo "  nosleepclub &        # 后台运行"
 echo "  pkill -f nosleepclub # 停止"
 echo ""
 echo "⚠️  记得接上电源，macOS clamshell 模式需要电源。"
+echo ""
+echo "如果提示 command not found，请重新打开终端或运行："
+echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
